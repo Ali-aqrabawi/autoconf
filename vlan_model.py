@@ -1,7 +1,7 @@
 from sqlalchemy.orm import sessionmaker , relationship
 from sqlalchemy import create_engine , Column , Integer , String , ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from switchs_config_file import Switchs_IPs ,Username , Password
+from switchs_config_file import Switchs_IPs ,Username , Password,en_pass
 from prettytable import PrettyTable
 import telnetlib
 import time
@@ -43,20 +43,21 @@ class Vlan(base):
         self.name = name
         self.description = descriptoin
     def AddVlan(self):
-        logger.info('adding vlan to database')
+        logger.info('adding vlan to database vlan id : %s',self.id)
         Session = sessionmaker(bind=engine)
 
         session = Session()
         session.add(self)
         session.commit()
-        session.close()
+
         logger.info('adding vlan to switches')
-        '''
+
         for ip in Switchs_IPs:
             swicth = Switch(ip,Username,Password)
 
             swicth.add_vlan_to_switch(self)
-        '''
+        session.close()
+
 
     def DeleteVlan(self,id):
         Session = sessionmaker(bind=engine)
@@ -67,11 +68,13 @@ class Vlan(base):
         session.close()
         logger.info('deleting vlan from switches')
         '''
+
         for ip in Switchs_IPs:
             swicth = Switch(ip, Username, Password)
 
             swicth.delete_vlan_from_switch(session.query(Vlan).filter(Vlan.id==id))
         '''
+
 
     def get_vlans(self):
         Session = sessionmaker(bind=engine)
@@ -108,6 +111,15 @@ class Vlan(base):
             #name_row.append(i.name)
             #description_row.append(i.description)
         print(ptable)
+        session.close()
+
+    def updateDBbulk(self,list_of_vlans):
+        Session = sessionmaker(bind=engine)
+
+        session = Session()
+        for vlan in list_of_vlans:
+            session.add(vlan)
+        session.commit()
         session.close()
 
     def AddSelfToSwitches(self):
@@ -174,7 +186,7 @@ class Switch:
 
         conn.write(b"en\n")
         conn.read_until(b"Password:")
-        conn.write(Password.encode('ascii') + b"\n")
+        conn.write(en_pass.encode('ascii') + b"\n")
 
         conn.write(b"terminal lenth 0\n")
 
@@ -194,8 +206,9 @@ class Switch:
 
         conn.write(b"show vlan | in active\n")
         conn.write(b"exit\n")
+        time.sleep(1)
 
-        output = conn.read_all().decode('ascii')
+        output = conn.read_very_eager().decode('ascii')
         output = output.splitlines()
 
         vlans = []
@@ -213,10 +226,12 @@ class Switch:
             for dict in vlans:
                 vlanObj = Vlan(dict['id'], dict['name'], 'na')
                 vlan_list_object.append(vlanObj)
-                return vlan_list_object
+            return vlan_list_object
+
 
         else :
             logger.info(' no Vlans were colleced from : %s', Switchs_IPs[0])
+            return None
 
 
         return
@@ -229,10 +244,20 @@ class Switch:
          conn = self.connect_to_switch_telnet()
 
          conn.write(b"conf t\n")
-         conn.write(b"vlan {}\n".format(Vlan.id))
          time.sleep(0.1)
-         conn.write(b"name {}\n".format(Vlan.name))
+         comand = 'vlan {}\n'.format(Vlan.id)
+
+         conn.write(comand.encode('ascii'))
+         time.sleep(0.1)
+         comand = 'name {}\n'.format(Vlan.name)
+         conn.write(comand.encode('ascii'))
          conn.write(b"exit\n")
+         time.sleep(1)
+         try:
+             out = conn.read_all()
+         except :
+             pass
+         #print(out.decode('ascii'))
 
     def delete_vlan_from_switch(self, Vlan):
         logger.info(' deleting Vlan from  : {}'.format(Switchs_IPs[0]))
@@ -262,16 +287,20 @@ class Synchronizer :
         for switch in self.switches :
 
             list_of_vlans = switch.collect_switch_vlans()
+            temp_vlan = Vlan()
+            temp_vlan.updateDBbulk(list_of_vlans)
+            '''
 
             for vlan in list_of_vlans :
                 vlan.AddVlan()
+            '''
 
 
         while True :
             logger.info(' checking if there is update on switches')
             db_vlans = Vlan()
             db_vlans = db_vlans.get_vlans()
-            for switch in Switchs_IPs:
+            for switch in self.switches:
 
                 vlans = switch.collect_switch_vlans()
                 if len(db_vlans) < len(vlans):
@@ -287,3 +316,4 @@ class Synchronizer :
                     for deleted in set_deleted_vlan:
                         deleted_vlan = Vlan(id=deleted, name=switch_vlanID_dict[deleted])
                         deleted_vlan.DeleteVlan()
+            time.sleep(3)
