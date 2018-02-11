@@ -65,7 +65,7 @@ sync = Synchronizer(list_of_switches_object)
 
 p1 = Process(target=userprompt())
 p1.start()
-p2 = Process(target=sync.run())
+p2 = Process(target=userprompt())
 p2.start()
 p1.join()
 p2.join()
