@@ -2,6 +2,7 @@ from sqlalchemy.orm import sessionmaker , relationship
 from sqlalchemy import create_engine , Column , Integer , String , ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from switchs_config_file import Switchs_IPs ,Username , Password
+from prettytable import PrettyTable
 import telnetlib
 import time
 import logging
@@ -50,23 +51,27 @@ class Vlan(base):
         session.commit()
         session.close()
         logger.info('adding vlan to switches')
+        '''
         for ip in Switchs_IPs:
             swicth = Switch(ip,Username,Password)
 
             swicth.add_vlan_to_switch(self)
+        '''
 
-    def DeleteVlan(self):
+    def DeleteVlan(self,id):
         Session = sessionmaker(bind=engine)
 
         session = Session()
-        session.query(Vlan).filter(Vlan.id==self.id).delete()
+        session.query(Vlan).filter(Vlan.id==id).delete()
         session.commit()
         session.close()
         logger.info('deleting vlan from switches')
+        '''
         for ip in Switchs_IPs:
             swicth = Switch(ip, Username, Password)
 
-            swicth.delete_vlan_from_switch(self)
+            swicth.delete_vlan_from_switch(session.query(Vlan).filter(Vlan.id==id))
+        '''
 
     def get_vlans(self):
         Session = sessionmaker(bind=engine)
@@ -83,6 +88,7 @@ class Vlan(base):
 
 
     def ViewVlans(self):
+
         Session = sessionmaker(bind=engine)
 
         session = Session()
@@ -90,13 +96,18 @@ class Vlan(base):
 
 
         if len(all) == 0 :
+
             print("no vlans")
             return
-        for i in all :
+        ptable = PrettyTable()
 
-            print(i.id)
-            print(i.name)
-            print(i.description)
+        ptable.field_names = ["Vlan ID", "name", "description"]
+        for i in all :
+            ptable.add_row([i.id,i.name,i.description])
+            #id_row.append(i.id)
+            #name_row.append(i.name)
+            #description_row.append(i.description)
+        print(ptable)
         session.close()
 
     def AddSelfToSwitches(self):
@@ -276,5 +287,3 @@ class Synchronizer :
                     for deleted in set_deleted_vlan:
                         deleted_vlan = Vlan(id=deleted, name=switch_vlanID_dict[deleted])
                         deleted_vlan.DeleteVlan()
-
-
