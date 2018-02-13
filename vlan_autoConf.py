@@ -1,6 +1,5 @@
 from vlan_model import Vlan,Switch,Synchronizer
 from switchs_config_file import Switchs_IPs ,Username , Password
-import sys, select
 import logging
 
 from multiprocessing import Process
@@ -10,12 +9,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+
 def userprompt():
     while True:
 
 
         x = input("Enter option\n" + "1. add vlan\n" + "2. view vlans\n" + "3. delete vlan\n" + "4. Synch vlans from switch\n"+ "0. Exit\n"+ " : ")
 
+        try :
+            assert int(x)
+        except ValueError:
+            print("please enter  a vlaid vlaue")
+            return userprompt()
 
         if int(x) == 1:
             id = input("enter vlan id : ")
@@ -59,22 +64,4 @@ def userprompt():
             print("##########################################################")
 
 
-#conn = paramiko.SSHClient()
-#conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-#conn.connect(ip, port=22, username=UN, password=PW)
-#remote = conn.invoke_shell()
-
-
-list_of_switches_object = []
-for ip in Switchs_IPs :
-    switch = Switch(ip,Username,Password)
-    list_of_switches_object.append(switch)
-
-sync = Synchronizer(list_of_switches_object)
-
-p1 = Process(target=userprompt())
-p1.start()
-p2 = Process(target=userprompt())
-p2.start()
-p1.join()
-p2.join()
+userprompt()
