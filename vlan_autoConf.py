@@ -26,12 +26,14 @@ def userprompt():
             id = input("enter vlan id : ")
             name = input("enter vlan name : ")
             description = input("enter vlan descriptoin : ")
+            logger.info('Adding Vlan please wait')
             sessionVlan = Vlan()
             sessionVlan.id = id
             sessionVlan.name = name
             sessionVlan.description = description
 
             sessionVlan.AddVlan()
+            logger.info('Vlan added successfully')
             print("##########################################################")
 
         elif int(x) == 2:
@@ -44,10 +46,13 @@ def userprompt():
             sessionVlan = Vlan()
             sessionVlan.ViewVlans()
             id = input("enter vlan id you want to delete : ")
+            logger.info('deleting Vlan , Please Wait')
             sessionVlan.DeleteVlan(id)
+            logger.info('Vlan Deleted successfully')
             print("##########################################################")
 
         elif int(x) == 4:
+            logger.info('Start Synching Vlan From Switches , please Wait')
             list_of_switches_object = []
             for ip in Switchs_IPs:
                 switch = Switch(ip, Username, Password)
@@ -55,6 +60,7 @@ def userprompt():
 
             sync = Synchronizer(list_of_switches_object)
             sync.run()
+            logger.info('vlans Synched successfully')
 
         elif int(x) == 0 :
             exit(code=0)
