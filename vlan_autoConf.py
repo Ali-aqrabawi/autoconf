@@ -14,7 +14,7 @@ def userprompt():
     while True:
 
 
-        x = input("Enter option\n" + "1. add vlan\n" + "2. view vlans\n" + "3. delete vlan\n" + "0. Exit\n"+ " : ")
+        x = input("Enter option\n" + "1. add vlan\n" + "2. view vlans\n" + "3. delete vlan\n" + "4. Synch vlans from switch\n"+ "0. Exit\n"+ " : ")
 
 
         if int(x) == 1:
@@ -41,6 +41,15 @@ def userprompt():
             id = input("enter vlan id you want to delete : ")
             sessionVlan.DeleteVlan(id)
             print("##########################################################")
+
+        elif int(x) == 4:
+            list_of_switches_object = []
+            for ip in Switchs_IPs:
+                switch = Switch(ip, Username, Password)
+                list_of_switches_object.append(switch)
+
+            sync = Synchronizer(list_of_switches_object)
+            sync.run()
 
         elif int(x) == 0 :
             exit(code=0)
