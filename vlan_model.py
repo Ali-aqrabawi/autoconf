@@ -1,4 +1,4 @@
-from sqlalchemy.orm import sessionmaker , relationship
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine , Column , Integer , String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import exc
@@ -14,8 +14,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-sqlalchemy_log = logging.getLogger("sqlalchemy")
-sqlalchemy_log.setLevel(logging.DEBUG)
 
 base = declarative_base()
 engine = create_engine('sqlite:///vlan.db')
@@ -48,7 +46,7 @@ class Vlan(base):
         self.name = name
         self.description = descriptoin
     def AddVlan(self):
-        logger.info('adding vlan to database vlan id : %s',self.id)
+        logger.debug('Vlan.AddVlan : adding vlan %s to database',self.id)
         Session = sessionmaker(bind=engine)
 
         session = Session()
@@ -61,7 +59,7 @@ class Vlan(base):
             session.rollback()
         session.commit()
 
-        logger.info('start adding vlan to swicthes process..')
+        logger.debug('Vlan.AddVlan :start adding vlan to swicthes process..')
 
         for ip in Switchs_IPs:
             swicth = Switch(ip,Username,Password)
@@ -70,7 +68,7 @@ class Vlan(base):
         session.close()
 
     def AddVlan_collected_from_switch(self):
-        logger.info('adding vlan to database vlan id : %s', self.id)
+        logger.debug('Vlan.AddVlan_collected_from_switch : adding vlan to database vlan id : %s', self.id)
         Session = sessionmaker(bind=engine)
 
         session = Session()
@@ -89,7 +87,7 @@ class Vlan(base):
         session.close()
 
     def DeleteVlan_after_syncing_from_switch(self,list_of_vlan_collected_from_switch):
-        logger.info('Synch :: deleting vlans from database if they were deleted from the switch')
+        logger.debug('Vlan.DeleteVlan_after_syncing_from_switch : deleting vlans from database if they were deleted from the switch')
         Session = sessionmaker(bind=engine)
         session = Session()
         ids_to_keep = []
@@ -117,7 +115,7 @@ class Vlan(base):
         #session.query(Vlan).filter(Vlan.id==id).delete()
         session.commit()
         session.close()
-        logger.info('start deleting process..')
+        logger.debug('Vlan.DeleteVlan : start deleting process..')
 
 
 
@@ -135,7 +133,7 @@ class Vlan(base):
         session = Session()
         all = session.query(Vlan).all()
         if len(all) == 0:
-            print("no vlans")
+            logger.debug('Vlan.get_vlans : No Vlans returned from DB')
             session.close()
             return
         session.close()
@@ -149,6 +147,7 @@ class Vlan(base):
 
         session = Session()
         all = session.query(Vlan).all()
+        logger.debug('Vlan.ViewVlans : DB Query = %s', all)
 
 
         if len(all) == 0 :
@@ -160,13 +159,12 @@ class Vlan(base):
         ptable.field_names = ["Vlan ID", "name", "description"]
         for i in all :
             ptable.add_row([i.id,i.name,i.description])
-            #id_row.append(i.id)
-            #name_row.append(i.name)
-            #description_row.append(i.description)
+
         print(ptable)
         session.close()
 
     def updateDBbulk(self,list_of_vlans):
+        logger.debug('Vlan.updateDBbulk : start updating vlan Bulk , Vlans : %s' , list_of_vlans)
         Session = sessionmaker(bind=engine)
 
         session = Session()
@@ -180,19 +178,7 @@ class Vlan(base):
 
 
 
-def vlans_obj_comparing(db_vlans,vlans):
-    switch_vlanID = []
-    switch_vlanID_dict = {}
-    db_vlanID = []
-    for vlan in vlans:
-        switch_vlanID_dict.update({vlan.id: vlan.name})
-        switch_vlanID.append(vlan.id)
-    for vlan in db_vlans:
-        db_vlanID.append(vlan.id)
 
-    set_new_vlan = set(switch_vlanID) ^ set(db_vlanID)
-
-    return set_new_vlan,switch_vlanID_dict
 
 
 
@@ -216,12 +202,12 @@ class Switch:
 
     def connect_to_switch_telnet(self):
 
-        logger.info(' Start telnet connection to : %s', self.ip)
+        logger.debug('Switch.connect_to_switch_telnet :  Start telnet connection to : %s', self.ip)
         try:
             conn = telnetlib.Telnet(self.ip, 23, 5)
         except socket.timeout:
-            print("connection time out caught.")
-            exit(0)
+            logger.info('unable to connect to switch : connection timeout')
+            return
 
 
         conn.read_until(b"Username: ")
@@ -244,7 +230,7 @@ class Switch:
         ## Return list of Vlan object of the vlans collected from the first switch in Switchs_IPs.
         ##considering all switches must have same vlan DB
 
-        logger.info(' Start synching Vlans from : %s', Switchs_IPs[0])
+        logger.debug('Switch.collect_switch_vlans : Start synching Vlans from : %s', Switchs_IPs[0])
 
         #collect the vlans in the first switch only to synch our DB
         conn = self.connect_to_switch_telnet()
@@ -270,7 +256,7 @@ class Switch:
 
         if vlans:
 
-            logger.info(' collected vlans : %s', vlans)
+            logger.debug('Switch.collect_switch_vlans : collected vlans = %s', vlans)
             vlan_list_object = []
             for dict in vlans:
                 vlanObj = Vlan(dict['id'], dict['name'], 'na')
@@ -288,11 +274,12 @@ class Switch:
 
 
     def add_vlan_to_switch(self,Vlan):
-         logger.info(' adding Vlan to  : {}'.format(self.ip))
+         logger.debug(' Switch.add_vlan_to_switch : adding Vlan to  : {}'.format(self.ip))
 
          conn = self.connect_to_switch_telnet()
 
          conn.write(b"conf t\n")
+         logger.debug('Switch.add_vlan_to_switch : sleep for 0.1 sec')
          time.sleep(0.1)
          comand = 'vlan {}\n'.format(Vlan.id)
 
@@ -306,17 +293,18 @@ class Switch:
          #needed because telnetlib apply the command after conn.read_all()
          try:
              out = conn.read_all()
+             logger.debug('Switch.add_vlan_to_switch : read_all() to apply configuration to switch')
 
          except :
              pass
          conn.close()
-         logger.info('Vlan added to switch successfuly')
+
 
 
 
 
     def delete_vlan_from_switch(self, id):
-        logger.info(' deleting Vlan {} from  : {}'.format(id,self.ip))
+        logger.debug('Switch.delete_vlan_from_switch : deleting Vlan {} from  : {}'.format(id,self.ip))
 
         conn = self.connect_to_switch_telnet()
         comand = "no vlan {}\n".format(id)
@@ -330,7 +318,7 @@ class Switch:
         except:
             pass
         conn.close()
-        logger.info('Vlan Deleted from switch successfuly')
+
 
 
 
@@ -362,7 +350,7 @@ class Synchronizer :
         except :
             pass
 
-        logger.info(' checking if there is vlans added on switches')
+        logger.debug('Synchronizer.run : start Synchronizing vlans from switch to DB')
         for switch in self.switches:
 
             vlans = switch.collect_switch_vlans()
