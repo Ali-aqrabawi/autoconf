@@ -1,7 +1,6 @@
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine , Column , Integer , String
+from sqlalchemy import create_engine , Column , Integer , String ,exc ,update
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import exc
 from switchs_config_file import Switchs_IPs ,Username , Password,en_pass
 from prettytable import PrettyTable
 import telnetlib
@@ -55,7 +54,7 @@ class Vlan(base):
             session.flush()
 
         except exc.IntegrityError:
-            logger.info('vlan already exist in the DB , VLANid is : %s', self.id)
+            logger.debug('vlan already exist in the DB , VLANid is : %s', self.id)
             session.rollback()
         session.commit()
 
@@ -77,7 +76,7 @@ class Vlan(base):
             session.flush()
 
         except exc.IntegrityError:
-            logger.info('vlan already exist in the DB , VLANid is : %s', self.id)
+            logger.debug('vlan %s already exist in the DB', self.id)
             session.rollback()
 
         session.commit()
@@ -163,6 +162,24 @@ class Vlan(base):
         print(ptable)
         session.close()
 
+    def UpdateVlan(self):
+        logger.info('start updating vlan, please wait %')
+
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        session.query(Vlan).filter(Vlan.id==self.id).update({"name": (self.name),"description": (self.description)})
+
+        session.commit()
+
+        for ip in Switchs_IPs:
+            swicth = Switch(ip,Username,Password)
+
+            swicth.add_vlan_to_switch(Vlan = self)
+        session.close()
+
+
+
     def updateDBbulk(self,list_of_vlans):
         logger.debug('Vlan.updateDBbulk : start updating vlan Bulk , Vlans : %s' , list_of_vlans)
         Session = sessionmaker(bind=engine)
@@ -219,6 +236,7 @@ class Switch:
         conn.read_until(b"Password:")
         conn.write(en_pass.encode('ascii') + b"\n")
 
+
         conn.write(b"terminal length 0\n")
 
         return conn
@@ -234,6 +252,9 @@ class Switch:
 
         #collect the vlans in the first switch only to synch our DB
         conn = self.connect_to_switch_telnet()
+        if not conn :
+            return
+
 
         conn.write(b"show vlan | in active\n")
         conn.write(b"exit\n")
@@ -265,7 +286,7 @@ class Switch:
 
 
         else :
-            logger.info(' no Vlans were colleced from : %s , please try again', Switchs_IPs[0])
+            logger.info(' no Vlans were colleced from : %s , check if the credentials are correct or try again', Switchs_IPs[0])
             return None
 
 
