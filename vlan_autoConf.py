@@ -37,19 +37,17 @@ def userprompt():
             print("##########################################################")
 
         elif int(x) == 2:
-            sessionVlan = Vlan()
 
-            sessionVlan.ViewVlans()
+            Vlan.ViewVlans()
             print("##########################################################")
 
 
 
         elif int(x) == 3:
-            sessionVlan = Vlan()
-            sessionVlan.ViewVlans()
+            Vlan.ViewVlans()
             id = input("enter vlan id you want to delete : ")
             logger.info('deleting Vlan , Please Wait')
-            sessionVlan.DeleteVlan(id)
+            Vlan.DeleteVlan(id)
 
             print("##########################################################")
 
@@ -57,7 +55,7 @@ def userprompt():
 
             sessionVlan = Vlan()
             sessionVlan.ViewVlans()
-            id = input("enter vlan id you want to upgrade: ")
+            id = input("enter vlan id you want to update: ")
             name = input("enter vlan name : ")
             description = input("enter vlan descriptoin : ")
             sessionVlan.id = id
