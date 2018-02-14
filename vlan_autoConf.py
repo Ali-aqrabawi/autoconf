@@ -14,7 +14,7 @@ def userprompt():
     while True:
 
 
-        x = input("Enter option\n" + "1. add vlan\n" + "2. view vlans\n" + "3. delete vlan\n" + "4. Synch vlans from switch\n"+ "0. Exit\n"+ " : ")
+        x = input("Enter option\n" + "1. add vlan\n" + "2. view vlans\n" + "3. delete vlan\n" + "4. update vlan\n"+"5. Synch vlans from switch\n"+ "0. Exit\n"+ " : ")
 
         try :
             assert int(x)
@@ -33,7 +33,7 @@ def userprompt():
             sessionVlan.description = description
 
             sessionVlan.AddVlan()
-            logger.info('Vlan added successfully')
+
             print("##########################################################")
 
         elif int(x) == 2:
@@ -42,16 +42,34 @@ def userprompt():
             sessionVlan.ViewVlans()
             print("##########################################################")
 
+
+
         elif int(x) == 3:
             sessionVlan = Vlan()
             sessionVlan.ViewVlans()
             id = input("enter vlan id you want to delete : ")
             logger.info('deleting Vlan , Please Wait')
             sessionVlan.DeleteVlan(id)
-            logger.info('Vlan Deleted successfully')
+
             print("##########################################################")
 
-        elif int(x) == 4:
+        elif int(x) == 4 :
+
+            sessionVlan = Vlan()
+            sessionVlan.ViewVlans()
+            id = input("enter vlan id you want to upgrade: ")
+            name = input("enter vlan name : ")
+            description = input("enter vlan descriptoin : ")
+            sessionVlan.id = id
+            sessionVlan.name = name
+            sessionVlan.description = description
+            sessionVlan.UpdateVlan()
+
+
+
+
+
+        elif int(x) == 5:
             logger.info('Start Synching Vlan From Switches , please Wait')
             list_of_switches_object = []
             for ip in Switchs_IPs:
@@ -60,7 +78,7 @@ def userprompt():
 
             sync = Synchronizer(list_of_switches_object)
             sync.run()
-            logger.info('vlans Synched successfully')
+
 
         elif int(x) == 0 :
             exit(code=0)
