@@ -85,7 +85,8 @@ class Vlan(base):
 
         session.close()
 
-    def DeleteVlan_after_syncing_from_switch(self,list_of_vlan_collected_from_switch):
+    @staticmethod
+    def DeleteVlan_after_syncing_from_switch(list_of_vlan_collected_from_switch):
         logger.debug('Vlan.DeleteVlan_after_syncing_from_switch : deleting vlans from database if they were deleted from the switch')
         Session = sessionmaker(bind=engine)
         session = Session()
@@ -100,7 +101,9 @@ class Vlan(base):
         session.close()
 
 
-    def DeleteVlan(self,id):
+
+    @staticmethod
+    def DeleteVlan(id):
         Session = sessionmaker(bind=engine)
 
         session = Session()
@@ -123,24 +126,11 @@ class Vlan(base):
 
             swicth.delete_vlan_from_switch(id)
 
-        
-
-
-    def get_vlans(self):
-        Session = sessionmaker(bind=engine)
-
-        session = Session()
-        all = session.query(Vlan).all()
-        if len(all) == 0:
-            logger.debug('Vlan.get_vlans : No Vlans returned from DB')
-            session.close()
-            return
-        session.close()
-        return all
 
 
 
-    def ViewVlans(self):
+    @staticmethod
+    def ViewVlans():
 
         Session = sessionmaker(bind=engine)
 
@@ -179,8 +169,8 @@ class Vlan(base):
         session.close()
 
 
-
-    def updateDBbulk(self,list_of_vlans):
+    @staticmethod
+    def updateDBbulk(list_of_vlans):
         logger.debug('Vlan.updateDBbulk : start updating vlan Bulk , Vlans : %s' , list_of_vlans)
         Session = sessionmaker(bind=engine)
 
@@ -223,8 +213,8 @@ class Switch:
         try:
             conn = telnetlib.Telnet(self.ip, 23, 5)
         except socket.timeout:
-            logger.info('unable to connect to switch : connection timeout')
-            return
+            logger.error('unable to connect to switch : connection timeout')
+            return False
 
 
         conn.read_until(b"Username: ")
@@ -235,6 +225,12 @@ class Switch:
         conn.write(b"en\n")
         conn.read_until(b"Password:")
         conn.write(en_pass.encode('ascii') + b"\n")
+        idx, obj, response = conn.expect([b"\#"], 3)
+
+        if idx :
+            logger.error('unable to connect to switch : wrong credentials')
+            return False
+
 
 
         conn.write(b"terminal length 0\n")
@@ -286,7 +282,7 @@ class Switch:
 
 
         else :
-            logger.info(' no Vlans were colleced from : %s , check if the credentials are correct or try again', Switchs_IPs[0])
+            logger.error(' no Vlans were colleced from : %s , please try again', Switchs_IPs[0])
             return None
 
 
@@ -328,6 +324,8 @@ class Switch:
         logger.debug('Switch.delete_vlan_from_switch : deleting Vlan {} from  : {}'.format(id,self.ip))
 
         conn = self.connect_to_switch_telnet()
+        if not conn :
+            return
         comand = "no vlan {}\n".format(id)
         conn.write(b"conf t\n")
         conn.write(comand.encode('ascii'))
@@ -360,8 +358,8 @@ class Synchronizer :
 
 
         list_of_vlans = self.switch[0].collect_switch_vlans()
-        temp_vlan = Vlan()
-        temp_vlan.updateDBbulk(list_of_vlans)
+
+        Vlan.updateDBbulk(list_of_vlans)
 
     def run(self):
 
@@ -378,13 +376,13 @@ class Synchronizer :
 
             if not vlans :
                 return
-            vlanSyncObject = Vlan()
-            vlanSyncObject.DeleteVlan_after_syncing_from_switch(vlans)
+
+            Vlan.DeleteVlan_after_syncing_from_switch(vlans)
 
             #adding the vlans from the switch to teh DB
             for vlan in vlans:
                 vlan.AddVlan_collected_from_switch()
-            #deleteing teh vlans that were deleted from the switch .
+
 
 
 
